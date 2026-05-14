@@ -15,6 +15,34 @@ Override the socket path with `--sock <path>` (on `run`) or `WOTWOT_SOCK=<path>`
 (everywhere). Run `wotwot run --headless` to skip the TUI — useful for
 daemonising under launchd/systemd.
 
+## Install
+
+```sh
+# from source (only supported method right now)
+git clone https://github.com/sugendran/wotwot.git
+cd wotwot
+cargo install --path .
+```
+
+That puts the `wotwot` binary in `~/.cargo/bin`. Make sure that's on
+your `PATH`.
+
+Or, without installing globally:
+
+```sh
+cargo run --release -- run
+```
+
+### Optional dependencies
+
+Per-pane requirements (each is optional — the dashboard still renders
+without them, the pane just shows an "unavailable" hint):
+
+| Pane | Needs |
+|---|---|
+| claude code | `npx` (Node.js) on PATH — pulled in transparently via `npx -y ccusage` |
+| docker | the `docker` CLI, with the daemon running |
+
 ## Panes
 
 ```
@@ -45,9 +73,15 @@ wotwot info pop                  # remove top
 wotwot info rm 2
 ```
 
-Point the CLI elsewhere with `WOTWOT_URL=http://host:port`.
+Point the CLI at a different socket with `WOTWOT_SOCK=<path>`.
 
 State is persisted at `~/Library/Application Support/wotwot/state.json` (macOS).
+
+## Agents
+
+`wotwot agents` prints a markdown guide for AI agents on how (and when)
+to use the todo and info commands. Pipe it into your agent's system
+prompt.
 
 ## Quit
 
