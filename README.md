@@ -4,9 +4,16 @@ Tiny 55-col terminal dashboard built with [ratatui](https://ratatui.rs).
 
 One binary, three roles:
 
-- `wotwot run` — launches the TUI **and** a local HTTP API (default `127.0.0.1:47291`).
+- `wotwot run` — launches the TUI **and** a local HTTP API served over a
+  Unix domain socket (no ports, no network). Default path is
+  `$XDG_RUNTIME_DIR/wotwot/wotwot.sock` (or a cache-dir / tmp fallback),
+  created mode `0600`.
 - `wotwot todo …` — CLI that talks to the running API to mutate the todo list.
 - `wotwot info …` — CLI for the info stack (LIFO; the dashboard loops through it).
+
+Override the socket path with `--sock <path>` (on `run`) or `WOTWOT_SOCK=<path>`
+(everywhere). Run `wotwot run --headless` to skip the TUI — useful for
+daemonising under launchd/systemd.
 
 ## Panes
 

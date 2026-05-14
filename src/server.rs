@@ -5,9 +5,21 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
+use std::path::PathBuf;
 use uuid::Uuid;
 
-pub const DEFAULT_PORT: u16 = 47291;
+pub fn default_socket_path() -> PathBuf {
+    if let Ok(p) = std::env::var("WOTWOT_SOCK") {
+        return PathBuf::from(p);
+    }
+    let mut p = dirs::runtime_dir()
+        .or_else(dirs::cache_dir)
+        .unwrap_or_else(std::env::temp_dir);
+    p.push("wotwot");
+    let _ = std::fs::create_dir_all(&p);
+    p.push("wotwot.sock");
+    p
+}
 
 pub fn router(state: SharedState) -> Router {
     Router::new()
