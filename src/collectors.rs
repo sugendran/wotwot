@@ -82,7 +82,7 @@ async fn collect_claude() -> ClaudeUsage {
             }
         }
     }
-    if let Some(v) = run_ccusage(&["blocks", "--json", "--active"]).await {
+    if let Some(v) = run_ccusage(&["blocks", "--json", "--active", "--token-limit", "max"]).await {
         let blocks = v.get("blocks").and_then(|x| x.as_array());
         if let Some(b) = blocks
             .and_then(|arr| arr.iter().find(|b| b.get("isActive").and_then(|x| x.as_bool()) == Some(true)))
