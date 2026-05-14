@@ -16,8 +16,26 @@ use ratatui::{
 use std::{io, time::Duration};
 
 const WIDTH: u16 = 55;
+const TARGET_HEIGHT: u16 = 28;
+
+fn maybe_resize_tmux_pane() {
+    if std::env::var_os("TMUX").is_none() {
+        return;
+    }
+    // best-effort; silently ignore if tmux is missing or the command fails
+    let _ = std::process::Command::new("tmux")
+        .args([
+            "resize-pane",
+            "-x",
+            &WIDTH.to_string(),
+            "-y",
+            &TARGET_HEIGHT.to_string(),
+        ])
+        .status();
+}
 
 pub async fn run(state: SharedState) -> Result<()> {
+    maybe_resize_tmux_pane();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
