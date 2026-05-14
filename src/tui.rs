@@ -173,6 +173,7 @@ fn draw_todos(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
         )))
     } else {
         let mut out = Text::default();
+        let last = s.todos.len() - 1;
         for (i, t) in s.todos.iter().enumerate() {
             let prefix = Span::styled(
                 format!("{:>2}. ", i + 1),
@@ -192,6 +193,9 @@ fn draw_todos(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
                 let mut spans = vec![Span::raw("    ")];
                 spans.extend(rest.spans);
                 out.lines.push(Line::from(spans));
+            }
+            if i != last {
+                out.lines.push(Line::from(""));
             }
         }
         out
