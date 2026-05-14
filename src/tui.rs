@@ -98,13 +98,14 @@ fn draw(f: &mut ratatui::Frame, s: &crate::state::AppState) {
         height: area.height,
     };
 
+    let docker_rows = 2 + s.docker.len().max(1) as u16; // borders + at least 1 line
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5),  // claude
-            Constraint::Min(5),     // todos
-            Constraint::Length(8),  // docker
-            Constraint::Length(6),  // info / quote
+            Constraint::Length(5),            // claude
+            Constraint::Min(5),               // todos
+            Constraint::Length(docker_rows),  // docker — fits all rows
+            Constraint::Length(6),            // info / quote
         ])
         .split(root);
 
@@ -196,7 +197,6 @@ fn draw_docker(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
     } else {
         s.docker
             .iter()
-            .take(area.height.saturating_sub(2) as usize)
             .map(|d| {
                 let name = truncate(&d.name, 38);
                 Line::from(vec![
