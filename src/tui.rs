@@ -16,37 +16,7 @@ use ratatui::{
 };
 use std::{io, time::Duration};
 
-const WIDTH: u16 = 55;
-
-fn maybe_resize_iterm2_window() {
-    // Don't fight tmux: if we're inside tmux it owns the geometry.
-    if std::env::var_os("TMUX").is_some() {
-        return;
-    }
-    if std::env::var_os("ITERM_SESSION_ID").is_none() {
-        return;
-    }
-    // xterm CSI 8;rows;cols t — iTerm2 honours this to resize the window.
-    use std::io::Write;
-    let mut out = std::io::stdout();
-    // rows=0 means "keep current height"
-    let _ = write!(out, "\x1b[8;0;{}t", WIDTH);
-    let _ = out.flush();
-}
-
-fn maybe_resize_tmux_pane() {
-    if std::env::var_os("TMUX").is_none() {
-        return;
-    }
-    // best-effort; silently ignore if tmux is missing or the command fails
-    let _ = std::process::Command::new("tmux")
-        .args(["resize-pane", "-x", &WIDTH.to_string()])
-        .status();
-}
-
 pub async fn run(state: SharedState) -> Result<()> {
-    maybe_resize_tmux_pane();
-    maybe_resize_iterm2_window();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -93,14 +63,7 @@ where
 }
 
 fn draw(f: &mut ratatui::Frame, s: &crate::state::AppState) {
-    let area = f.area();
-    let w = WIDTH.min(area.width);
-    let root = Rect {
-        x: area.x,
-        y: area.y,
-        width: w,
-        height: area.height,
-    };
+    let root = f.area();
 
     let docker_rows = 2 + s.docker.len().max(1) as u16; // borders + at least 1 line
     let chunks = Layout::default()
@@ -290,12 +253,14 @@ fn draw_docker(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
             Style::default().fg(Color::DarkGray),
         ))]
     } else {
+        // borders=2, cpu col=8, gap=1
+        let name_w = (area.width as usize).saturating_sub(2 + 8 + 1).max(1);
         s.docker
             .iter()
             .map(|d| {
-                let name = truncate(&d.name, 38);
+                let name = truncate(&d.name, name_w);
                 Line::from(vec![
-                    Span::raw(format!("{:<38} ", name)),
+                    Span::raw(format!("{:<width$} ", name, width = name_w)),
                     Span::styled(
                         format!("{:>8}", d.cpu),
                         Style::default().fg(Color::Green),

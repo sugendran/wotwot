@@ -16,7 +16,7 @@ You can drive two of its panes from the command line:
   - info:  a LIFO stack of short reminders that cycle every ~6s
 
 Both speak markdown and ANSI escapes (bold, italic, inline `code`,
-links, colours). Keep entries short — the pane is 55 columns wide.
+links, colours). Keep entries short — the dashboard panes are narrow.
 
 ## When to use which
 

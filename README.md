@@ -1,6 +1,7 @@
 # wotwot
 
-Tiny 55-col terminal dashboard built with [ratatui](https://ratatui.rs).
+Tiny terminal dashboard built with [ratatui](https://ratatui.rs). Resizes
+to fit whatever space your terminal gives it.
 
 One binary, three roles:
 
