@@ -64,6 +64,8 @@ enum Cmd {
         #[command(subcommand)]
         action: InfoCmd,
     },
+    /// Print a guide for AI agents on how to drive todos/info
+    Agents,
 }
 
 #[derive(Subcommand)]
@@ -102,6 +104,10 @@ async fn main() -> Result<()> {
             InfoCmd::Rm { id } => cli::info_rm(id).await,
             InfoCmd::List => cli::info_list().await,
         },
+        Cmd::Agents => {
+            print!("{}", cli::AGENTS_GUIDE);
+            Ok(())
+        }
     }
 }
 
