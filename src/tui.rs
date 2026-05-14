@@ -18,6 +18,21 @@ use std::{io, time::Duration};
 const WIDTH: u16 = 55;
 const TARGET_HEIGHT: u16 = 28;
 
+fn maybe_resize_iterm2_window() {
+    // Don't fight tmux: if we're inside tmux it owns the geometry.
+    if std::env::var_os("TMUX").is_some() {
+        return;
+    }
+    if std::env::var_os("ITERM_SESSION_ID").is_none() {
+        return;
+    }
+    // xterm CSI 8;rows;cols t — iTerm2 honours this to resize the window.
+    use std::io::Write;
+    let mut out = std::io::stdout();
+    let _ = write!(out, "\x1b[8;{};{}t", TARGET_HEIGHT, WIDTH);
+    let _ = out.flush();
+}
+
 fn maybe_resize_tmux_pane() {
     if std::env::var_os("TMUX").is_none() {
         return;
@@ -36,6 +51,7 @@ fn maybe_resize_tmux_pane() {
 
 pub async fn run(state: SharedState) -> Result<()> {
     maybe_resize_tmux_pane();
+    maybe_resize_iterm2_window();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
