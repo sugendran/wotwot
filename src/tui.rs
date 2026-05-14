@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Gauge, Paragraph, Wrap},
     Terminal,
 };
 use std::{io, time::Duration};
@@ -106,7 +106,7 @@ fn draw(f: &mut ratatui::Frame, s: &crate::state::AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5),            // claude
+            Constraint::Length(6),            // claude (3 lines + borders + gauge)
             Constraint::Min(5),               // todos
             Constraint::Length(docker_rows),  // docker — fits all rows
             Constraint::Length(6),            // info / quote
@@ -130,29 +130,80 @@ fn block(title: &str) -> Block<'_> {
 }
 
 fn draw_claude(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
-    let mut lines: Vec<Line> = vec![];
     let c = &s.claude;
-    if c.today_usd.is_none() && c.today_tokens.is_none() && c.raw.is_none() {
-        lines.push(Line::from(Span::styled(
-            "ccusage unavailable",
-            Style::default().fg(Color::DarkGray),
-        )));
-        lines.push(Line::from("install: npm i -g ccusage"));
-    } else {
-        if let Some(u) = c.today_usd {
-            lines.push(Line::from(format!("Today  ${:.2}", u)));
-        }
-        if let Some(t) = c.today_tokens {
-            lines.push(Line::from(format!("Tokens {}", fmt_num(t))));
-        }
-        if lines.is_empty() {
-            lines.push(Line::from("ccusage: data parsed but empty"));
-        }
+
+    // outer block + inner area
+    let outer = block("claude code");
+    let inner = outer.inner(area);
+    f.render_widget(outer, area);
+
+    if c.today_usd.is_none() && c.today_tokens.is_none() && c.block_tokens.is_none() {
+        let p = Paragraph::new(vec![
+            Line::from(Span::styled(
+                "ccusage unavailable",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from("install: npm i -g ccusage"),
+        ]);
+        f.render_widget(p, inner);
+        return;
     }
-    let p = Paragraph::new(lines)
-        .block(block("claude code"))
-        .wrap(Wrap { trim: true });
-    f.render_widget(p, area);
+
+    // top line: today's $ + tokens
+    let mut header = String::new();
+    if let Some(u) = c.today_usd {
+        header.push_str(&format!("Today ${:.2}", u));
+    }
+    if let Some(t) = c.today_tokens {
+        if !header.is_empty() {
+            header.push_str("   ");
+        }
+        header.push_str(&format!("Tokens {}", fmt_num(t)));
+    }
+
+    // bar label
+    let (used, limit, ratio) = match (c.block_tokens, c.block_limit) {
+        (Some(t), Some(l)) if l > 0 => (t, Some(l), (t as f64 / l as f64).min(1.0)),
+        (Some(t), _) => (t, None, 0.0),
+        _ => (0, None, 0.0),
+    };
+    let label = if let Some(l) = limit {
+        format!("{} / {} ({:.0}%)", fmt_num(used), fmt_num(l), ratio * 100.0)
+    } else if c.block_tokens.is_some() {
+        format!("{} (no limit)", fmt_num(used))
+    } else {
+        "no active block".to_string()
+    };
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // header
+            Constraint::Length(1), // "5h block" label
+            Constraint::Length(1), // gauge
+            Constraint::Min(0),
+        ])
+        .split(inner);
+
+    f.render_widget(Paragraph::new(header), rows[0]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("5h block ", Style::default().fg(Color::DarkGray)),
+            Span::raw(label),
+        ])),
+        rows[1],
+    );
+
+    let bar_colour = match (ratio * 100.0) as u32 {
+        0..=59 => Color::Green,
+        60..=84 => Color::Yellow,
+        _ => Color::Red,
+    };
+    let gauge = Gauge::default()
+        .gauge_style(Style::default().fg(bar_colour))
+        .ratio(if limit.is_some() { ratio } else { 0.0 })
+        .label(""); // label printed above so we control formatting
+    f.render_widget(gauge, rows[2]);
 }
 
 fn fmt_num(n: u64) -> String {

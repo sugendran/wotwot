@@ -70,35 +70,59 @@ async fn collect_docker() -> Vec<DockerSvc> {
 }
 
 async fn collect_claude() -> ClaudeUsage {
-    // Try `ccusage --json` (npx fallback). Best effort; ignore failures.
-    let attempts: Vec<(&str, Vec<&str>)> = vec![
-        ("ccusage", vec!["--json"]),
-        ("npx", vec!["-y", "ccusage", "--json"]),
-    ];
-    for (bin, args) in attempts {
-        let out = Command::new(bin).args(&args).output().await;
-        if let Ok(out) = out {
-            if out.status.success() {
-                let s = String::from_utf8_lossy(&out.stdout).to_string();
-                let mut u = ClaudeUsage {
-                    raw: Some(s.clone()),
-                    ..Default::default()
-                };
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-                    // try common shapes
-                    if let Some(today) = v.get("today") {
-                        u.today_usd = today.get("totalCost").and_then(|x| x.as_f64());
-                        u.today_tokens = today.get("totalTokens").and_then(|x| x.as_u64());
-                    } else if let Some(arr) = v.get("daily").and_then(|x| x.as_array()) {
-                        if let Some(last) = arr.last() {
-                            u.today_usd = last.get("totalCost").and_then(|x| x.as_f64());
-                            u.today_tokens = last.get("totalTokens").and_then(|x| x.as_u64());
-                        }
-                    }
-                }
-                return u;
+    let mut u = ClaudeUsage::default();
+    if let Some(v) = run_ccusage(&["--json"]).await {
+        if let Some(today) = v.get("today") {
+            u.today_usd = today.get("totalCost").and_then(|x| x.as_f64());
+            u.today_tokens = today.get("totalTokens").and_then(|x| x.as_u64());
+        } else if let Some(arr) = v.get("daily").and_then(|x| x.as_array()) {
+            if let Some(last) = arr.last() {
+                u.today_usd = last.get("totalCost").and_then(|x| x.as_f64());
+                u.today_tokens = last.get("totalTokens").and_then(|x| x.as_u64());
             }
         }
     }
-    ClaudeUsage::default()
+    if let Some(v) = run_ccusage(&["blocks", "--json", "--active"]).await {
+        let blocks = v.get("blocks").and_then(|x| x.as_array());
+        if let Some(b) = blocks
+            .and_then(|arr| arr.iter().find(|b| b.get("isActive").and_then(|x| x.as_bool()) == Some(true)))
+            .or_else(|| blocks.and_then(|arr| arr.first()))
+        {
+            u.block_tokens = b.get("totalTokens").and_then(|x| x.as_u64());
+            u.block_limit = b
+                .get("tokenLimitStatus")
+                .and_then(|s| s.get("limit"))
+                .and_then(|x| x.as_u64())
+                .or_else(|| b.get("tokenLimit").and_then(|x| x.as_u64()));
+        }
+    }
+    u
+}
+
+async fn run_ccusage(args: &[&str]) -> Option<serde_json::Value> {
+    let attempts: Vec<Vec<&str>> = vec![
+        {
+            let mut v = vec!["ccusage"];
+            v.extend_from_slice(args);
+            v
+        },
+        {
+            let mut v = vec!["npx", "-y", "ccusage"];
+            v.extend_from_slice(args);
+            v
+        },
+    ];
+    for cmd in attempts {
+        let (bin, rest) = cmd.split_first().unwrap();
+        let Ok(out) = Command::new(bin).args(rest).output().await else {
+            continue;
+        };
+        if !out.status.success() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+            return Some(v);
+        }
+    }
+    None
 }

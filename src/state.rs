@@ -26,6 +26,10 @@ pub struct DockerSvc {
 pub struct ClaudeUsage {
     pub today_usd: Option<f64>,
     pub today_tokens: Option<u64>,
+    /// tokens used in the currently-active 5h block
+    pub block_tokens: Option<u64>,
+    /// projected token limit for the current block (from ccusage)
+    pub block_limit: Option<u64>,
     pub raw: Option<String>,
 }
 
