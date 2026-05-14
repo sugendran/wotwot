@@ -43,7 +43,6 @@ pub struct AppState {
     pub claude: ClaudeUsage,
     pub info_cursor: usize,
     pub quote_cursor: usize,
-    pub status: String,
 }
 
 pub type SharedState = Arc<RwLock<AppState>>;
