@@ -100,29 +100,13 @@ async fn collect_claude() -> ClaudeUsage {
 }
 
 async fn run_ccusage(args: &[&str]) -> Option<serde_json::Value> {
-    let attempts: Vec<Vec<&str>> = vec![
-        {
-            let mut v = vec!["ccusage"];
-            v.extend_from_slice(args);
-            v
-        },
-        {
-            let mut v = vec!["npx", "-y", "ccusage"];
-            v.extend_from_slice(args);
-            v
-        },
-    ];
-    for cmd in attempts {
-        let (bin, rest) = cmd.split_first().unwrap();
-        let Ok(out) = Command::new(bin).args(rest).output().await else {
-            continue;
-        };
-        if !out.status.success() {
-            continue;
-        }
-        if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
-            return Some(v);
-        }
+    let mut full = vec!["-y", "ccusage"];
+    full.extend_from_slice(args);
+    let Ok(out) = Command::new("npx").args(&full).output().await else {
+        return None;
+    };
+    if !out.status.success() {
+        return None;
     }
-    None
+    serde_json::from_slice::<serde_json::Value>(&out.stdout).ok()
 }

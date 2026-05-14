@@ -143,7 +143,7 @@ fn draw_claude(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
                 "ccusage unavailable",
                 Style::default().fg(Color::DarkGray),
             )),
-            Line::from("install: npm i -g ccusage"),
+            Line::from("needs: npx (Node) on PATH"),
         ]);
         f.render_widget(p, inner);
         return;
