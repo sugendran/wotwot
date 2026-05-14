@@ -1,4 +1,5 @@
 use crate::state::{SharedState, QUOTES};
+use ansi_to_tui::IntoText;
 use anyhow::Result;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -9,7 +10,7 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
 };
@@ -67,7 +68,10 @@ pub async fn run(state: SharedState) -> Result<()> {
 async fn run_loop<B: ratatui::backend::Backend>(
     term: &mut Terminal<B>,
     state: SharedState,
-) -> Result<()> {
+) -> Result<()>
+where
+    B::Error: Send + Sync + 'static,
+{
     loop {
         let snap = state.read().await.clone();
         term.draw(|f| draw(f, &snap))?;
@@ -162,30 +166,66 @@ fn fmt_num(n: u64) -> String {
 }
 
 fn draw_todos(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
-    let lines: Vec<Line> = if s.todos.is_empty() {
-        vec![Line::from(Span::styled(
+    let text: Text = if s.todos.is_empty() {
+        Text::from(Line::from(Span::styled(
             "no todos — add via CLI",
             Style::default().fg(Color::DarkGray),
-        ))]
+        )))
     } else {
-        s.todos
-            .iter()
-            .enumerate()
-            .map(|(i, t)| {
-                Line::from(vec![
-                    Span::styled(
-                        format!("{:>2}. ", i + 1),
-                        Style::default().fg(Color::Yellow),
-                    ),
-                    Span::raw(t.text.clone()),
-                ])
-            })
-            .collect()
+        let mut out = Text::default();
+        for (i, t) in s.todos.iter().enumerate() {
+            let prefix = Span::styled(
+                format!("{:>2}. ", i + 1),
+                Style::default().fg(Color::Yellow),
+            );
+            let body = render_rich(&t.text);
+            // first body line gets the index prefix; subsequent lines indent 4
+            let mut body_lines = body.lines.into_iter();
+            if let Some(first) = body_lines.next() {
+                let mut spans = vec![prefix];
+                spans.extend(first.spans);
+                out.lines.push(Line::from(spans));
+            } else {
+                out.lines.push(Line::from(prefix));
+            }
+            for rest in body_lines {
+                let mut spans = vec![Span::raw("    ")];
+                spans.extend(rest.spans);
+                out.lines.push(Line::from(spans));
+            }
+        }
+        out
     };
-    let p = Paragraph::new(lines)
+    let p = Paragraph::new(text)
         .block(block("todos"))
-        .wrap(Wrap { trim: true });
+        .wrap(Wrap { trim: false });
     f.render_widget(p, area);
+}
+
+/// Render todo/info text as styled Text:
+/// - ANSI escapes (\x1b[...) → ansi-to-tui
+/// - otherwise → tui-markdown (handles plain text fine)
+fn render_rich(s: &str) -> Text<'static> {
+    if s.contains('\x1b') {
+        if let Ok(t) = s.as_bytes().into_text() {
+            return t;
+        }
+    }
+    let md = tui_markdown::from_str(s);
+    // tui-markdown returns Text<'a> borrowing from `s`; convert to owned.
+    let owned: Vec<Line<'static>> = md
+        .lines
+        .into_iter()
+        .map(|l| {
+            let spans = l
+                .spans
+                .into_iter()
+                .map(|sp| Span::styled(sp.content.into_owned(), sp.style))
+                .collect::<Vec<_>>();
+            Line::from(spans)
+        })
+        .collect();
+    Text::from(owned)
 }
 
 fn draw_docker(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
@@ -228,9 +268,9 @@ fn draw_info(f: &mut ratatui::Frame, area: Rect, s: &crate::state::AppState) {
             .unwrap_or("");
         ("quote".to_string(), q.to_string())
     };
-    let p = Paragraph::new(text)
+    let p = Paragraph::new(render_rich(&text))
         .block(block(&title))
-        .wrap(Wrap { trim: true });
+        .wrap(Wrap { trim: false });
     f.render_widget(p, area);
 }
 

@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ratatui = "0.29"
-crossterm = "0.28"
+ratatui = "0.30"
+crossterm = "0.29"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs", "io-util", "net", "signal"] }
 axum = "0.7"
 hyper = { version = "1", features = ["server", "http1"] }
@@ -19,3 +19,5 @@ dirs = "5"
 anyhow = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+ansi-to-tui = "8"
+tui-markdown = "0.3"
