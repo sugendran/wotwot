@@ -16,7 +16,6 @@ use ratatui::{
 use std::{io, time::Duration};
 
 const WIDTH: u16 = 55;
-const TARGET_HEIGHT: u16 = 28;
 
 fn maybe_resize_iterm2_window() {
     // Don't fight tmux: if we're inside tmux it owns the geometry.
@@ -29,7 +28,8 @@ fn maybe_resize_iterm2_window() {
     // xterm CSI 8;rows;cols t — iTerm2 honours this to resize the window.
     use std::io::Write;
     let mut out = std::io::stdout();
-    let _ = write!(out, "\x1b[8;{};{}t", TARGET_HEIGHT, WIDTH);
+    // rows=0 means "keep current height"
+    let _ = write!(out, "\x1b[8;0;{}t", WIDTH);
     let _ = out.flush();
 }
 
@@ -39,13 +39,7 @@ fn maybe_resize_tmux_pane() {
     }
     // best-effort; silently ignore if tmux is missing or the command fails
     let _ = std::process::Command::new("tmux")
-        .args([
-            "resize-pane",
-            "-x",
-            &WIDTH.to_string(),
-            "-y",
-            &TARGET_HEIGHT.to_string(),
-        ])
+        .args(["resize-pane", "-x", &WIDTH.to_string()])
         .status();
 }
 
